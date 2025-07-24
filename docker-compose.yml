@@ -1,0 +1,150 @@
+#version: '3.8'
+
+volumes:
+  postgres_data: {}
+  #grafana_data: {}
+
+networks:
+  front-tier:
+  back-tier:
+
+services:
+  # PostgreSQL database (backend for MLflow + your data)
+  postgres:
+    image: postgres:13
+    restart: always
+    environment:
+      - POSTGRES_USER=absa_user
+      - POSTGRES_PASSWORD=absa_password
+      - POSTGRES_DB=absa_db
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    networks:
+      - back-tier
+
+  # PgAdmin for database management
+  pgadmin:
+    image: dpage/pgadmin4
+    restart: always
+    environment:
+      - PGADMIN_DEFAULT_EMAIL=admin@admin.com
+      - PGADMIN_DEFAULT_PASSWORD=admin
+    ports:
+      - "8080:80"
+    networks:
+      - back-tier
+      - front-tier
+
+  # MLflow for experiment tracking (now with PostgreSQL backend)
+  mlflow:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "5001:5001"
+    environment:
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION}
+    depends_on:
+      - postgres
+    networks:
+      - back-tier
+      - front-tier
+    restart: unless-stopped
+
+  # # Grafana for monitoring dashboards
+  # grafana:
+  #   image: grafana/grafana
+  #   user: "472"
+  #   ports:
+  #     - "3000:3000"
+  #   volumes:
+  #     - grafana_data:/var/lib/grafana
+  #   networks:
+  #     - back-tier
+  #     - front-tier
+  #   restart: always
+
+  # # Local Lambda testing (optional - use profiles)
+  # lambda-extract:
+  #   build:
+  #     context: src/lambdas/extract/
+  #     dockerfile: Dockerfile
+  #   ports:
+  #     - "8081:8080"
+  #   environment:
+  #     - S3_RAW_BUCKET=absa-drift-raw-dev
+  #     - S3_PROCESSED_BUCKET=absa-drift-processed-dev
+  #     - TEST_RUN=True
+  #     - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+  #     - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+  #     - AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION}
+  #   profiles:
+  #     - lambda-test
+
+  # lambda-transform:
+  #   build:
+  #     context: src/lambdas/transform/
+  #     dockerfile: Dockerfile
+  #   ports:
+  #     - "8082:8080"
+  #   environment:
+  #     - MLFLOW_TRACKING_URI=http://mlflow:5001  # Match your port
+  #     - MODEL_NAME=sentiment-model-dev
+  #     - TEST_RUN=True
+  #     - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+  #     - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+  #     - AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION}
+  #   profiles:
+  #     - lambda-test
+
+  # lambda-monitor:
+  #   build:
+  #     context: src/lambdas/monitor/
+  #     dockerfile: Dockerfile
+  #   ports:
+  #     - "8083:8080"
+  #   environment:
+  #     - MLFLOW_TRACKING_URI=http://mlflow:5001
+  #     - TEST_RUN=True
+  #     - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+  #     - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+  #     - AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION}
+  #   profiles:
+  #     - lambda-test
+
+  # lambda-alert:
+  #   build:
+  #     context: src/lambdas/alert/
+  #     dockerfile: Dockerfile
+  #   ports:
+  #     - "8084:8080"
+  #   environment:
+  #     - SNS_TOPIC_ARN=arn:aws:sns:us-east-1:123456789:test-alerts
+  #     - TEST_RUN=True
+  #     - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+  #     - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+  #     - AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION}
+  #   profiles:
+  #     - lambda-test
+
+  # # Integration tests
+  # integration-test:
+  #   build:
+  #     context: tests/
+  #     dockerfile: Dockerfile
+  #   depends_on:
+  #     - lambda-extract
+  #     - lambda-transform
+  #     - lambda-monitor
+  #     - lambda-alert
+  #   environment:
+  #     - EXTRACT_URL=http://lambda-extract:8080/2015-03-31/functions/function/invocations
+  #     - TRANSFORM_URL=http://lambda-transform:8080/2015-03-31/functions/function/invocations
+  #     - MONITOR_URL=http://lambda-monitor:8080/2015-03-31/functions/function/invocations
+  #     - ALERT_URL=http://lambda-alert:8080/2015-03-31/functions/function/invocations
+  #   profiles:
+  #     - test

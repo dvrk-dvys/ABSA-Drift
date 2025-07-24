@@ -5,7 +5,7 @@
 ## DIRECTORY STRUCTURE
 ================================================================================
 
-tiktok_sentiment_mlops/
+ABSA-Drift/
 ├── .github/
 │   └── workflows/
 │       ├── ci.yml                          # Unit tests, linting, building containers
@@ -74,7 +74,7 @@ tiktok_sentiment_mlops/
 │   │   │   │   └── variables.tf            # DynamoDB variables
 │   │   │   └── sns/
 │   │   │       ├── main.tf                 # SNS topics for notifications
-│   │   │       └── variables.tf            # SNS variables
+│   │       └── variables.tf            # SNS variables
 │   │   └── environments/
 │   │       ├── dev.tfvars                  # Development environment config
 │   │       ├── staging.tfvars              # Staging environment config
@@ -87,13 +87,10 @@ tiktok_sentiment_mlops/
 │   └── artifacts/                          # Local model artifacts for development
 ├── monitoring/
 │   ├── dashboards/
-│   │   ├── sentiment_drift.json            # Grafana dashboard for sentiment drift
+│   │   ├── sentiment_drift.json            # CloudWatch dashboard for sentiment drift
 │   │   └── model_performance.json          # Model performance metrics dashboard
-│   ├── config/
-│   │   ├── grafana_datasources.yaml        # Grafana data source configuration
-│   │   └── prometheus.yml                  # Prometheus configuration
 │   └── alerts/
-│       └── drift_alerts.yml                # Alerting rules for model drift
+│       └── drift_alerts.yml                # CloudWatch alerting rules
 ├── tests/
 │   ├── unit/
 │   │   ├── test_extract.py                 # Unit tests for extraction lambda
@@ -101,21 +98,20 @@ tiktok_sentiment_mlops/
 │   │   ├── test_monitor.py                 # Unit tests for drift monitoring
 │   │   └── test_alert.py                   # Unit tests for alerting
 │   ├── integration/
-│   │   ├── docker-compose.yml              # Local test environment
+│   │   ├── docker-compose.yml              # Local test environment (PostgreSQL, MLflow)
 │   │   ├── test_pipeline.py                # End-to-end pipeline tests
 │   │   └── sample_data/                    # Test TikTok comment samples
 │   └── load/
 │       └── test_performance.py             # Load testing for Lambda functions
 ├── docker/
-│   ├── localstack/
-│   │   └── docker-compose.yml              # Local AWS services simulation
 │   └── mlflow/
 │       └── docker-compose.yml              # Local MLflow server
 ├── scripts/
 │   ├── deploy.sh                           # Deployment script
 │   ├── build_containers.sh                 # Build all Lambda containers
 │   ├── setup_local_env.sh                  # Setup local development environment
-│   └── data_ingestion.py                   # Script to ingest sample TikTok data
+│   ├── data_ingestion.py                   # Script to ingest sample TikTok data
+│   └── teardown.sh                         # Terraform destroy wrapper script
 ├── docs/
 │   ├── architecture.md                     # System architecture documentation
 │   ├── deployment.md                       # Deployment instructions
@@ -124,9 +120,9 @@ tiktok_sentiment_mlops/
 ├── .pre-commit-config.yaml                 # Pre-commit hooks configuration
 ├── Makefile                                # Build and deployment targets
 ├── README.md                               # Project overview and setup
-├── requirements-dev.txt                    # Development dependencies  
+├── requirements-dev.txt                    # Development dependencies
 ├── pyproject.toml                          # Python project configuration
-└── sam-template.yaml                       # SAM template for local Lambda testing
+└── sam-template.yaml                       # SAM template for local Lambda testing (using real AWS)
 
 ================================================================================
 ## STEP FUNCTIONS STATE MACHINE DEFINITION
