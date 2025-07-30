@@ -125,12 +125,12 @@ if __name__ == '__main__':
     df_replies = load_csv_replies(args.original_csv)
     update_postgres_replies(df_replies, args.table_name, conn_str)
 
-    base = args.input_parquet.rstrip('/')
-    root = base[:-len('.parquet')]
-    out_path = (args.output_parquet
-                if args.output_parquet
-                else f"{root}_with_replies.parquet")
+    #base = args.input_parquet.rstrip('/')
+    #root = base[:-len('.parquet')]
+    #out_path = (args.output_parquet
+    #            if args.output_parquet
+    #            else f"{root}_with_replies.parquet")
 
     # merge and write Parquet
-    update_parquet_replies(args.input_parquet, out_path, df_replies)
+   # update_parquet_replies(args.input_parquet, out_path, df_replies)
 

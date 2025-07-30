@@ -1,0 +1,102 @@
+Trust policy trust.json:
+
+jsonc
+Copy
+Edit
+{
+  "Version":"2012-10-17",
+  "Statement":[
+    {
+      "Effect":"Allow",
+      "Principal":{"Service":"lambda.amazonaws.com"},
+      "Action":"sts:AssumeRole"
+    }
+  ]
+}
+Create the role:
+
+bash
+Copy
+Edit
+aws iam create-role \
+  --role-name lambda-extract-role \
+  --assume-role-policy-document file://trust.json
+Attach CloudWatch‐logs:
+
+bash
+Copy
+Edit
+aws iam attach-role-policy \
+  --role-name lambda-extract-role \
+  --policy-arn arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+Attach S3 permissions (adjust bucket ARN as needed):
+
+bash
+Copy
+Edit
+cat > policy.json <<EOF
+{
+  "Version":"2012-10-17",
+  "Statement":[
+    {
+      "Effect":"Allow",
+      "Action":["s3:ListBucket","s3:GetObject","s3:PutObject"],
+      "Resource":[
+        "arn:aws:s3:::absa-drift-data",
+        "arn:aws:s3:::absa-drift-data/*"
+      ]
+    }
+  ]
+}
+EOF
+
+aws iam put-role-policy \
+  --role-name lambda-extract-role \
+  --policy-name extract-s3-access \
+  --policy-document file://policy.json
+3) Create the Lambda function
+bash
+Copy
+Edit
+aws lambda create-function \
+  --function-name lambda-extract \
+  --runtime python3.9 \
+  --role arn:aws:iam::<YOUR_ACCOUNT_ID>:role/lambda-extract-role \
+  --handler lambda_function.lambda_handler \
+  --zip-file fileb://function.zip
+(Replace <YOUR_ACCOUNT_ID> with your AWS account number.)
+
+4) Invoke it once
+bash
+Copy
+Edit
+aws lambda invoke \
+  --function-name lambda-extract \
+  --payload '{}' \
+  /tmp/extract-out.json
+
+cat /tmp/extract-out.json
+You should see something like:
+
+json
+Copy
+Edit
+{
+  "status":"success",
+  "bucket":"absa-drift-data",
+  "key":"prep_transform/extracted_<uuid>.parquet",
+  "records_processed": 123,
+  "uploaded_at": "2025-07-30T14:05:00Z"
+}
+5) Verify in the Console
+Lambda → Functions: you’ll now see lambda-extract.
+
+S3 → absa-drift-data → prep_transform/: you’ll see your extracted_<uuid>.parquet.
+
+Next steps
+Once you confirm that parquet file is in S3, you can wire up your Transform Lambda or Step Function to pick up "bucket"+"key" from the extract output.
+
+
+
+
+
