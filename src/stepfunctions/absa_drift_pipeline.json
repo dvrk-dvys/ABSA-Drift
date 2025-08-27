@@ -1,0 +1,16 @@
+{
+  "Comment": "ABSA Drift Detection Pipeline - 4 Lambda Functions",
+  "StartAt": "Extract",
+  "States": {
+    "ExtractData": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Next": "Transform"
+    },
+    "TransformData": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Next": "Monitor"
+    }
+  }
+}

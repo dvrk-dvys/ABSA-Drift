@@ -110,3 +110,24 @@ prod_stream_model_duration_mlops-zoomcamp
 
 watch the hyphen and the underscores
 ```
+
+
+
+Dont forget to create the s3 buckets for the comment sections raw data to then be put inot inference
+
+in my project i am not using kinessis streams because i am doing batch processing  or the comments. no need for live 
+
+the reason why i went with parquet uploads to s3 is because the s3 data needs to be preprocessed for nlp data first. 
+
+the pre processor uploads to parquet in a patch with create a directory of parquets
+# If you want to upload the entire partitioned directory
+aws s3 sync /path/to/absa_debug_train_dataframe.parquet/ s3://absa-drift-data/hourly_comments/2025_07_30_14/ --exclude "*" --include "part-*.parquet"
+
+
+!using an s3 uri automatically writes the df to s3! how elegant!
+
+'URI as path
+When you pass a path that starts with s3://…, pandas (via the chosen parquet engine—usually PyArrow or Fastparquet—and fsspec with s3fs) recognizes that it needs to write to S3 rather than local disk.'
+final_df.to_parquet(s3_uri, index=False)
+
+
