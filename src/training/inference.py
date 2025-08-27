@@ -54,6 +54,7 @@ def main():
     print(f"Feature columns: {list(features.columns)[:10]}...")  # Show first 10 columns
     
     print("\nRunning inference...")
+    print(features.head())
     predictions = model.predict(features)
 
     pred_df = pd.DataFrame(predictions,
