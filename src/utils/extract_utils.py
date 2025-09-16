@@ -5,7 +5,6 @@ import pandas as pd
 from datetime import datetime, timedelta
 import logging
 
-# Configure logging
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
@@ -30,8 +29,12 @@ def get_recent_files(bucket: str, prefix: str, minutes: int = 60) -> list:
     return recent
 
 def extract_from_s3(bucket, key, prev_df=None):
-    s3_path = f"s3://{bucket}/{key}"
-    df = pd.read_parquet(s3_path)
+    # Download file to temp location and read with pandas
+    import tempfile
+    with tempfile.NamedTemporaryFile(suffix='.parquet') as tmp_file:
+        _s3.download_file(bucket, key, tmp_file.name)
+        df = pd.read_parquet(tmp_file.name)
+    
     if prev_df:
         prev_df.append(df)
         return prev_df

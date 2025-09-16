@@ -8,11 +8,11 @@ import json
 
 import boto3
 import mlflow.pyfunc
-from src.utils.data_utils import load_nlp_models, create_features
+from src.utils.data_utils import create_features
 
 MODEL_S3_URI = os.getenv(
     "MODEL_S3_URI",
-    "s3://absa-drift-models/mlflow/1/models/m-315e95fac3ac42ac9e8577e8d445d190/artifacts/"
+    "s3://absa-drift-models/mlflow/1/models/m-b7eb3a33adf347f7a157d0655e0d6ba9/artifacts/"
 )
 
 def download_model_mlflow(model_uri):
@@ -27,16 +27,16 @@ def download_model_from_s3(bucket_name, s3_key):
     return model
 
 
-def load_extracted_data(bucket, key, nlp_model='bert-base-uncased'):
-    tokenizer, embed_model = load_nlp_models(nlp_model)
-
+def load_extracted_data(bucket, key):
     s3_uri = f"s3://{bucket}/{key}"
     original_df = pd.read_parquet(s3_uri)
 
-    original_df = original_df.head(5)
-    print(f"Loaded {len(original_df)} sample rows")
-    print(original_df[['comment', 'polarity', 'implicitness']].head())
-    features_df = create_features(df=original_df, embed_model=embed_model, tokenizer=tokenizer)
+    print(f"Loaded {len(original_df)} records from {s3_uri}")
+    print(f"Unique aspect terms: {original_df['aspectterm'].nunique()}")
+    print(f"Sample data:")
+    print(original_df[['comment', 'aspectterm', 'polarity', 'implicitness']].head())
+    
+    features_df = create_features(df=original_df)
     print(f"Created features with shape: {features_df.shape}")
     print(f"Feature columns: {list(features_df.columns)[:10]}...")
     return original_df, features_df
@@ -44,7 +44,7 @@ def load_extracted_data(bucket, key, nlp_model='bert-base-uncased'):
 
 def predict(model, features):
     print("\nRunning inference...")
-
+    print(features.head())
     predictions = model.predict(features)
     pred_df = pd.DataFrame(predictions,
                            columns=['sentiment_score', 'engagement_score', 'implicitness_degree']
@@ -61,32 +61,37 @@ def predict(model, features):
     return pred_df
 
 
-def lambda_handler(event, monitor_key="monitoring/monitor_predictions.parquet"):
+def transform_handler(event, monitor_key="monitoring/monitor_predictions.parquet"):
     bucket = event['bucket']
     key = event['key']
+    is_test = event.get('test', False)
 
     model = download_model_mlflow(MODEL_S3_URI)
     orig_df, feat_df = load_extracted_data(bucket, key)
     pred_df = predict(model, feat_df)
 
     monitor_df = pd.concat([
-        orig_df[['comment', 'aspectterm', 'comment_id', 'polarity', 'implicitness']],
+        orig_df[['comment', 'aspectterm', 'comment_id', 'comment_time', 'polarity', 'implicitness']],
         pred_df
     ], axis=1)
 
-
-    monitor_uri = f"s3://{bucket}/{monitor_key}"
+    # Use test prefix if test mode
+    prefix = "test_" if is_test else ""
+    monitor_key_final = f"monitoring/{prefix}monitor_predictions.parquet" if is_test else monitor_key
+    monitor_uri = f"s3://{bucket}/{monitor_key_final}"
 
     # Append to existing or create new
     try:
         existing_df = pd.read_parquet(monitor_uri)
         combined_df = pd.concat([existing_df, monitor_df], ignore_index=True)
+        # Remove duplicates based on comment_id and aspectterm
+        combined_df = combined_df.drop_duplicates(subset=['comment_id', 'aspectterm'], keep='last')
     except:
         combined_df = monitor_df
 
     combined_df.to_parquet(monitor_uri, index=False)
 
-    return {
+    output = {
         "status": "success",
         "bucket": bucket,
         "monitor_uri": monitor_uri,
@@ -96,23 +101,29 @@ def lambda_handler(event, monitor_key="monitoring/monitor_predictions.parquet"):
             "avg_engagement": float(pred_df['engagement_score'].mean()),
             "avg_implicitness": float(pred_df['implicitness_degree'].mean())
         },
-        "timestamp": datetime.utcnow().isoformat() + "Z"
+        "timestamp": datetime.utcnow().isoformat() + "Z",
+        "test": is_test
     }
+    print(output)
+    return output
 
 
 if __name__ == '__main__':
+    pd.set_option('display.max_columns', None)
+    pd.set_option('display.width', None)
+    pd.set_option('display.max_colwidth', None)
 
     MODEL_S3_URI = os.getenv(
         "MODEL_S3_URI",
-        "s3://absa-drift-models/mlflow/1/models/m-315e95fac3ac42ac9e8577e8d445d190/artifacts/"
+        "s3://absa-drift-models/mlflow/1/models/m-b7eb3a33adf347f7a157d0655e0d6ba9/artifacts/"
     )
 
     bucket_name = 'absa-drift-data'
-    DATA_S3_KEY = 'prep_transform/extracted_ae17638f-8665-40eb-84ee-ff9d6bedef66.parquet'
+    DATA_S3_KEY = 'prep_transform/extracted_36f180d5-04c5-43c0-9aca-0888826dd0a7.parquet'
     #{'status': 'success', 'bucket': 'absa-drift-data', 'key': 'prep_transform/extracted_ae17638f-8665-40eb-84ee-ff9d6bedef66.parquet', 'records_processed': 228, 'uploaded_at': '2025-07-30T14:17:03Z'}
 
     model = download_model_mlflow(MODEL_S3_URI)
-    f_df = load_extracted_data(bucket_name, DATA_S3_KEY)
-    p_df = predict(model, f_df)
+    orig_df, feat_df = load_extracted_data(bucket_name, DATA_S3_KEY)
+    p_df = predict(model, feat_df)
 
 

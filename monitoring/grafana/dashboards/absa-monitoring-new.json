@@ -1,0 +1,112 @@
+{
+  "dashboard": {
+    "id": null,
+    "title": "ABSA Monitoring (Live)",
+    "tags": [
+      "absa",
+      "monitoring",
+      "drift",
+      "sentiment"
+    ],
+    "timezone": "browser",
+    "schemaVersion": 38,
+    "version": 1,
+    "refresh": "5m",
+    "time": {
+      "from": "now-7d",
+      "to": "now"
+    },
+    "panels": [
+      {
+        "id": 1,
+        "title": "Average Sentiment Score (Hourly)",
+        "type": "timeseries",
+        "targets": [
+          {
+            "format": "time_series",
+            "refId": "A",
+            "rawSql": "\n                SELECT\n                  comment_time AS time,\n                  AVG(sentiment_score) AS avg_sentiment\n                FROM absa_monitoring_data\n                WHERE $__timeFilter(comment_time)\n                GROUP BY time\n                ORDER BY time\n            "
+          }
+        ],
+        "gridPos": {
+          "h": 8,
+          "w": 24,
+          "x": 0,
+          "y": 0
+        }
+      },
+      {
+        "id": 2,
+        "title": "Sentiment Distribution",
+        "type": "piechart",
+        "targets": [
+          {
+            "format": "table",
+            "refId": "A",
+            "rawSql": "\n                SELECT\n                  CASE polarity\n                    WHEN 0 THEN 'Positive'\n                    WHEN 1 THEN 'Negative'\n                    WHEN 2 THEN 'Neutral'\n                    ELSE 'Unknown'\n                  END AS label,\n                  COUNT(*) AS value\n                FROM absa_monitoring_data\n                WHERE $__timeFilter(comment_time)\n                GROUP BY polarity\n            "
+          }
+        ],
+        "gridPos": {
+          "h": 9,
+          "w": 12,
+          "x": 0,
+          "y": 8
+        }
+      },
+      {
+        "id": 3,
+        "title": "Top Aspect Terms",
+        "type": "table",
+        "targets": [
+          {
+            "format": "table",
+            "refId": "A",
+            "rawSql": "\n                SELECT aspectterm, COUNT(*) AS frequency\n                FROM absa_monitoring_data\n                WHERE $__timeFilter(comment_time)\n                GROUP BY aspectterm\n                ORDER BY frequency DESC\n                LIMIT 10\n            "
+          }
+        ],
+        "gridPos": {
+          "h": 9,
+          "w": 12,
+          "x": 12,
+          "y": 8
+        }
+      },
+      {
+        "id": 4,
+        "title": "Drift Detected (Count)",
+        "type": "stat",
+        "targets": [
+          {
+            "format": "table",
+            "refId": "A",
+            "rawSql": "\n                SELECT COUNT(*) as count\n                FROM absa_monitoring_data\n                WHERE overall_drift_detected = true AND $__timeFilter(comment_time)\n            "
+          }
+        ],
+        "gridPos": {
+          "h": 6,
+          "w": 12,
+          "x": 0,
+          "y": 17
+        }
+      },
+      {
+        "id": 5,
+        "title": "Engagement Score Trend",
+        "type": "timeseries",
+        "targets": [
+          {
+            "format": "time_series",
+            "refId": "A",
+            "rawSql": "\n                SELECT\n                  comment_time AS time,\n                  AVG(engagement_score) AS avg_engagement\n                FROM absa_monitoring_data\n                WHERE $__timeFilter(comment_time)\n                GROUP BY time\n                ORDER BY time\n            "
+          }
+        ],
+        "gridPos": {
+          "h": 6,
+          "w": 12,
+          "x": 12,
+          "y": 17
+        }
+      }
+    ]
+  }
+}

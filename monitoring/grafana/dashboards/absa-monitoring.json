@@ -1,0 +1,195 @@
+{
+  "dashboard": {
+    "id": null,
+    "title": "ABSA Drift Monitoring",
+    "tags": ["absa", "monitoring", "sentiment"],
+    "timezone": "browser",
+    "panels": [
+      {
+        "id": 1,
+        "title": "Total Comments Over Time",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "",
+            "format": "table",
+            "rawSql": "SELECT SUM(total_comments) as total FROM absa_drift_summary",
+            "refId": "A"
+          }
+        ],
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 0,
+          "y": 0
+        },
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "palette-classic"
+            },
+            "displayName": "Total Comments"
+          }
+        }
+      },
+      {
+        "id": 2,
+        "title": "Average Sentiment Score",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "",
+            "format": "table",
+            "rawSql": "SELECT AVG(avg_sentiment_score) as avg_sentiment FROM absa_drift_summary",
+            "refId": "A"
+          }
+        ],
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 12,
+          "y": 0
+        },
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "palette-classic"
+            },
+            "displayName": "Avg Sentiment Score"
+          }
+        }
+      },
+      {
+        "id": 3,
+        "title": "Sentiment Distribution Over Time",
+        "type": "timeseries",
+        "targets": [
+          {
+            "expr": "",
+            "format": "time_series",
+            "rawSql": "SELECT summary_date as time, positive_count as positive, neutral_count as neutral, negative_count as negative FROM absa_drift_summary ORDER BY summary_date",
+            "refId": "A"
+          }
+        ],
+        "gridPos": {
+          "h": 9,
+          "w": 24,
+          "x": 0,
+          "y": 8
+        },
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "palette-classic"
+            }
+          }
+        }
+      },
+      {
+        "id": 4,
+        "title": "Comments by Hour",
+        "type": "timeseries",
+        "targets": [
+          {
+            "expr": "",
+            "format": "time_series",
+            "rawSql": "SELECT hour_bucket as time, SUM(total_comments) as comments FROM absa_drift_summary GROUP BY hour_bucket ORDER BY hour_bucket",
+            "refId": "A"
+          }
+        ],
+        "gridPos": {
+          "h": 9,
+          "w": 12,
+          "x": 0,
+          "y": 17
+        },
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "palette-classic"
+            }
+          }
+        }
+      },
+      {
+        "id": 5,
+        "title": "Implicit vs Explicit Aspects",
+        "type": "piechart",
+        "targets": [
+          {
+            "expr": "",
+            "format": "table",
+            "rawSql": "SELECT 'Implicit' as label, SUM(implicit_count) as value FROM absa_drift_summary UNION ALL SELECT 'Explicit' as label, SUM(explicit_count) as value FROM absa_drift_summary",
+            "refId": "A"
+          }
+        ],
+        "gridPos": {
+          "h": 9,
+          "w": 12,
+          "x": 12,
+          "y": 17
+        },
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "palette-classic"
+            }
+          }
+        }
+      },
+      {
+        "id": 6,
+        "title": "Top Aspect Terms",
+        "type": "table",
+        "targets": [
+          {
+            "expr": "",
+            "format": "table",
+            "rawSql": "SELECT aspectterm, COUNT(*) as frequency FROM absa_monitoring_data GROUP BY aspectterm ORDER BY frequency DESC LIMIT 10",
+            "refId": "A"
+          }
+        ],
+        "gridPos": {
+          "h": 9,
+          "w": 12,
+          "x": 0,
+          "y": 26
+        }
+      },
+      {
+        "id": 7,
+        "title": "Engagement Score Trend",
+        "type": "timeseries",
+        "targets": [
+          {
+            "expr": "",
+            "format": "time_series",
+            "rawSql": "SELECT summary_date as time, AVG(avg_engagement_score) as engagement FROM absa_drift_summary GROUP BY summary_date ORDER BY summary_date",
+            "refId": "A"
+          }
+        ],
+        "gridPos": {
+          "h": 9,
+          "w": 12,
+          "x": 12,
+          "y": 26
+        },
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "palette-classic"
+            }
+          }
+        }
+      }
+    ],
+    "time": {
+      "from": "now-7d",
+      "to": "now"
+    },
+    "refresh": "1h",
+    "schemaVersion": 27,
+    "version": 0,
+    "gnetId": null
+  }
+}

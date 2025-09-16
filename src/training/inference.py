@@ -4,7 +4,7 @@ import mlflow
 from mlflow import pyfunc
 import sys
 sys.path.append('/Users/jordanharris/Code/ABSA-Drift/src')
-from src.utils.data_utils import load_data_from_postgres, create_features, load_nlp_models
+from src.utils.data_utils import load_data_from_postgres, create_features
 
 pd.set_option('display.max_columns', None)
 pd.set_option('display.max_rows', None)
@@ -24,12 +24,10 @@ def load_model_from_mlflow(run_id):
     return model
 
 def main():
-    # Setup MLflow to match training configuration
     setup_mlflow()
     
-    # Use the run ID from your output
-    run_id = "0f8c8395930340aeb6100749dd255a9e"
-    
+    run_id = "ebab471849954c17a8cea59e7e84e93e" #new v3 core features only
+
     print("Loading model from MLflow...")
     model = load_model_from_mlflow(run_id)
     
@@ -47,11 +45,10 @@ def main():
     print(f"Loaded {len(df)} sample rows")
     print(df[['comment', 'polarity', 'implicitness']].head())
     
-    print("\nLoading models and creating features...")
-    tokenizer, embed_model = load_nlp_models('bert-base-uncased')
-    features = create_features(df, embed_model, tokenizer)
+    print("\nCreating features...")
+    features = create_features(df)
     print(f"Created features with shape: {features.shape}")
-    print(f"Feature columns: {list(features.columns)[:10]}...")  # Show first 10 columns
+    print(f"Feature columns: {list(features.columns)}")
     
     print("\nRunning inference...")
     print(features.head())
@@ -69,7 +66,7 @@ def main():
     print(f"Predictions shape: {predictions.shape}")
     print(f"Predictions:\n{predictions}")
     
-    # Show prediction columns (should be sentiment_score, engagement_score, implicitness_degree)
+
     if predictions.shape[1] == 3:
         pred_df = pd.DataFrame(predictions, columns=['sentiment_score', 'engagement_score', 'implicitness_degree'])
         print(f"\nPrediction details:")

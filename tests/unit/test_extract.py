@@ -46,7 +46,6 @@ def upload_test_data(s3_client):
     #    except:
     #        pass
 
-    # Upload fresh files
     for local_file, s3_key in zip(local_files, test_keys):
         if Path(local_file).exists():
             with open(local_file, 'rb') as f:
@@ -64,12 +63,10 @@ def test_extract_local_writes_parquet(s3_client, upload_test_data):
     assert result['status'] == 'success'
     key = result['key']
     assert key.startswith('prep_transform/extracted_')
-    # Allow S3 some time to register the object
     time.sleep(2)
     head = s3_client.head_object(Bucket=env_bucket, Key=key)
     assert head['ContentLength'] > 0, "Parquet file should have non-zero size"
 
-    # Read back and check schema
     obj = s3_client.get_object(Bucket=env_bucket, Key=key)
     df = pd.read_parquet(f"s3://{env_bucket}/{key}")
     assert isinstance(df, pd.DataFrame)

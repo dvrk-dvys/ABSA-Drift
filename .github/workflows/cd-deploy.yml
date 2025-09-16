@@ -1,0 +1,183 @@
+# TODO: ABSA-Drift CD Pipeline - Adapted from MLOps Zoomcamp Course
+# NOTE: Original course file was empty, creating ABSA-appropriate CD pipeline
+
+name: CD-Deploy
+on:
+  push:
+    branches:
+      - 'main'                    # TODO: Deploy on main branch pushes
+    paths:
+      - 'src/**'                  # TODO: Deploy when source code changes
+      - 'infra/**'                # TODO: Deploy when infrastructure changes
+
+env:
+  # TODO: Update for ABSA project environment
+  AWS_DEFAULT_REGION: 'us-east-1'
+  AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+  AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+  # TODO: Add ABSA-specific deployment variables
+  PROJECT_ID: 'absa-drift'
+  ENVIRONMENT: 'dev'  # TODO: Change to 'prod' for production deployments
+
+jobs:
+  # TODO: ABSA Project - Build and Push Lambda Images
+  build-and-push:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ env.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ env.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_DEFAULT_REGION }}
+
+      # TODO: ABSA Project - Get ECR repository URL from Terraform output
+      - name: Get ECR Repository URL
+        id: ecr-url
+        run: |
+          # TODO: This assumes Terraform has been applied and outputs are available
+          echo "ecr_url=$(aws ecr describe-repositories --repository-names ${{ env.PROJECT_ID }}-ml-${{ env.ENVIRONMENT }} --query 'repositories[0].repositoryUri' --output text)" >> $GITHUB_OUTPUT
+
+      # TODO: ABSA Project - Login to ECR
+      - name: Login to Amazon ECR
+        run: |
+          aws ecr get-login-password --region ${{ env.AWS_DEFAULT_REGION }} | docker login --username AWS --password-stdin ${{ steps.ecr-url.outputs.ecr_url }}
+
+      # TODO: ABSA Project - Build and push all Lambda containers
+      - name: Build and Push Lambda Images
+        run: |
+          # TODO: Build all 4 Lambda function containers
+          
+          # Extract Lambda
+          docker build --platform linux/amd64 -t ${{ env.PROJECT_ID }}-extract:${{ github.sha }} src/lambdas/extract/
+          docker tag ${{ env.PROJECT_ID }}-extract:${{ github.sha }} ${{ steps.ecr-url.outputs.ecr_url }}:extract-${{ github.sha }}
+          docker tag ${{ env.PROJECT_ID }}-extract:${{ github.sha }} ${{ steps.ecr-url.outputs.ecr_url }}:extract-latest
+          docker push ${{ steps.ecr-url.outputs.ecr_url }}:extract-${{ github.sha }}
+          docker push ${{ steps.ecr-url.outputs.ecr_url }}:extract-latest
+          
+          # Transform Lambda  
+          docker build --platform linux/amd64 -t ${{ env.PROJECT_ID }}-transform:${{ github.sha }} src/lambdas/transform/
+          docker tag ${{ env.PROJECT_ID }}-transform:${{ github.sha }} ${{ steps.ecr-url.outputs.ecr_url }}:transform-${{ github.sha }}
+          docker tag ${{ env.PROJECT_ID }}-transform:${{ github.sha }} ${{ steps.ecr-url.outputs.ecr_url }}:transform-latest
+          docker push ${{ steps.ecr-url.outputs.ecr_url }}:transform-${{ github.sha }}
+          docker push ${{ steps.ecr-url.outputs.ecr_url }}:transform-latest
+          
+          # Monitor Lambda
+          docker build --platform linux/amd64 -t ${{ env.PROJECT_ID }}-monitor:${{ github.sha }} src/lambdas/monitor/
+          docker tag ${{ env.PROJECT_ID }}-monitor:${{ github.sha }} ${{ steps.ecr-url.outputs.ecr_url }}:monitor-${{ github.sha }}
+          docker tag ${{ env.PROJECT_ID }}-monitor:${{ github.sha }} ${{ steps.ecr-url.outputs.ecr_url }}:monitor-latest
+          docker push ${{ steps.ecr-url.outputs.ecr_url }}:monitor-${{ github.sha }}
+          docker push ${{ steps.ecr-url.outputs.ecr_url }}:monitor-latest
+          
+          # Alert Lambda
+          docker build --platform linux/amd64 -t ${{ env.PROJECT_ID }}-alert:${{ github.sha }} src/lambdas/alert/
+          docker tag ${{ env.PROJECT_ID }}-alert:${{ github.sha }} ${{ steps.ecr-url.outputs.ecr_url }}:alert-${{ github.sha }}
+          docker tag ${{ env.PROJECT_ID }}-alert:${{ github.sha }} ${{ steps.ecr-url.outputs.ecr_url }}:alert-latest
+          docker push ${{ steps.ecr-url.outputs.ecr_url }}:alert-${{ github.sha }}
+          docker push ${{ steps.ecr-url.outputs.ecr_url }}:alert-latest
+
+  # TODO: ABSA Project - Deploy Infrastructure and Update Lambda Functions
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build-and-push
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ env.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ env.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_DEFAULT_REGION }}
+
+      - uses: hashicorp/setup-terraform@v2
+
+      # TODO: ABSA Project - Deploy Terraform Infrastructure
+      - name: Terraform Apply
+        working-directory: 'infra/terraform'
+        run: |
+          # TODO: Initialize and apply Terraform
+          terraform init
+          terraform apply -var-file="environments/${{ env.ENVIRONMENT }}.tfvars" -auto-approve
+
+      # TODO: ABSA Project - Update Lambda Function Code
+      - name: Update Lambda Functions
+        run: |
+          # TODO: Get ECR repository URL
+          ECR_URL=$(aws ecr describe-repositories --repository-names ${{ env.PROJECT_ID }}-ml-${{ env.ENVIRONMENT }} --query 'repositories[0].repositoryUri' --output text)
+          
+          # TODO: Update all Lambda functions with new images
+          aws lambda update-function-code \
+            --function-name ${{ env.PROJECT_ID }}-extract-${{ env.ENVIRONMENT }} \
+            --image-uri $ECR_URL:extract-${{ github.sha }}
+          
+          aws lambda update-function-code \
+            --function-name ${{ env.PROJECT_ID }}-transform-${{ env.ENVIRONMENT }} \
+            --image-uri $ECR_URL:transform-${{ github.sha }}
+          
+          aws lambda update-function-code \
+            --function-name ${{ env.PROJECT_ID }}-monitor-${{ env.ENVIRONMENT }} \
+            --image-uri $ECR_URL:monitor-${{ github.sha }}
+          
+          aws lambda update-function-code \
+            --function-name ${{ env.PROJECT_ID }}-alert-${{ env.ENVIRONMENT }} \
+            --image-uri $ECR_URL:alert-${{ github.sha }}
+
+      # TODO: ABSA Project - Test Deployment
+      - name: Test Deployment
+        run: |
+          # TODO: Run a basic deployment test
+          echo "Testing Step Functions execution..."
+          
+          # Get Step Function ARN
+          STEP_FUNCTION_ARN=$(aws stepfunctions list-state-machines --query 'stateMachines[?name==`${{ env.PROJECT_ID }}-pipeline-${{ env.ENVIRONMENT }}`].stateMachineArn' --output text)
+          
+          # Start execution
+          EXECUTION_ARN=$(aws stepfunctions start-execution \
+            --state-machine-arn $STEP_FUNCTION_ARN \
+            --name "cd-deploy-test-$(date +%Y%m%d-%H%M%S)" \
+            --input '{"test": true}' \
+            --query 'executionArn' --output text)
+          
+          echo "Step Function execution started: $EXECUTION_ARN"
+          
+          # TODO: Add more comprehensive deployment validation
+          # - Check Lambda function health
+          # - Verify S3 bucket accessibility  
+          # - Test SNS topic configuration
+          # - Validate MLflow connectivity
+
+# TODO: Additional CD Enhancements to Consider:
+#
+# rollback:
+#   runs-on: ubuntu-latest
+#   if: failure()
+#   steps:
+#     - name: Rollback Lambda Functions
+#       run: |
+#         # TODO: Implement rollback to previous image versions
+#         # Get previous successful deployment tag
+#         # Update Lambda functions to previous images
+#
+# smoke-tests:
+#   runs-on: ubuntu-latest
+#   needs: deploy
+#   steps:
+#     - name: Run Smoke Tests
+#       run: |
+#         # TODO: Run basic smoke tests after deployment
+#         # Test each Lambda function endpoint
+#         # Verify Step Functions can be triggered
+#         # Check monitoring endpoints
+#
+# security-scan:
+#   runs-on: ubuntu-latest
+#   steps:
+#     - uses: actions/checkout@v3
+#     - name: Run Security Scan
+#       run: |
+#         # TODO: Scan Lambda containers for vulnerabilities
+#         # Check for exposed secrets in code
+#         # Validate IAM permissions

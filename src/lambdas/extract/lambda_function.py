@@ -1,9 +1,10 @@
+import os
 import uuid
 from datetime import datetime
 import pandas as pd
 from src.utils.extract_utils import get_recent_files, extract_from_s3
 
-bucket = 'absa-drift-data'
+bucket = os.getenv('S3_DATA_BUCKET', 'absa-drift-data')
 prefix = 'hourly_tiktok_comments_nlp/'
 minutes = 60
 
@@ -27,8 +28,14 @@ def lambda_handler(event, context):
     print(final_df.head())
 
     intermediate_key = f"prep_transform/extracted_{uuid.uuid4()}.parquet"
-    s3_uri = f"s3://{bucket}/{intermediate_key}"
-    final_df.to_parquet(s3_uri, index=False)
+    
+    import tempfile
+    import boto3
+    s3_client = boto3.client('s3')
+    
+    with tempfile.NamedTemporaryFile(suffix='.parquet') as tmp_file:
+        final_df.to_parquet(tmp_file.name, index=False)
+        s3_client.upload_file(tmp_file.name, bucket, intermediate_key)
 
     upload_time = datetime.utcnow().replace(microsecond=0).isoformat() + "Z"
 
