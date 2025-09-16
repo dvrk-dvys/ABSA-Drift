@@ -12,6 +12,7 @@ Real-time sentiment analysis model drift detection for **TikTok comment data** u
 - [Data Flow](#data-flow-transformation)
 - [Monitoring](#monitoring-grafana-dashboards)
 - [Deployment](#deployment-infrastructure)
+- [CI/CD & Code Quality](#ci-cd--code-quality)
 - [Technologies](#core-technologies)
 
 ---
@@ -221,6 +222,26 @@ features = combine_features(embeddings, engagement_metrics, aspects)
 **✨ Zero Configuration Required**: Dashboards auto-provision when you start the monitoring stack. Navigate to [http://localhost:3000](http://localhost:3000) and log in with `admin/admin`.
 
 ![Grafana ML Monitoring](docs/images/grafana-ml-dashboard.png)
+
+---
+
+
+## 🧪 CI/CD & Code Quality
+
+This repo ships with automated checks and deployments to keep the pipeline reliable and reproducible.
+
+- **Pre-commit hooks** (`.pre-commit-config.yaml`)  
+  Formats & lints code, sorts imports, runs basic safety checks, and blocks secrets/large files before they land in Git.  
+  _Run locally:_ `pre-commit install` → hooks run on every `git commit`.
+
+- **Continuous Integration** (`.github/workflows/ci-tests.yml`)  
+  Runs on PRs/commits: installs deps, executes unit/integration tests, and validates ML code paths (e.g., feature/transform logic, MLflow usage).
+
+- **Continuous Deployment** (`.github/workflows/cd-deploy.yml`)  
+  On merges to `main`: builds Lambda container images, pushes to ECR, applies Terraform, and updates the Step Functions/Lambda stack.  
+  Includes room for smoke tests and rollback steps.
+
+**Core tooling:** MLflow, pytest, Docker, Terraform, AWS Lambda/Step Functions/S3, pre-commit.
 
 ---
 
