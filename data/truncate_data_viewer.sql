@@ -1,5 +1,5 @@
 SELECT
-    -- Text columns - truncated
+
     LEFT(aspectterm, 15) AS aspectterm,
     LEFT(comment, 40) AS comment,
     comment_id,
@@ -9,7 +9,7 @@ SELECT
     LEFT(nick_name, 15) AS nick_name,
     comment_time,
 
-    -- Numeric columns - no truncation needed
+
     digg_count,
     author_digged,
     reply_count,
@@ -24,7 +24,7 @@ SELECT
     contextual_surprisal,
     contextual_perplexity,
 
-    -- JSONB array columns - with safety checks
+
     CASE
         WHEN jsonb_typeof(input_ids::jsonb) = 'array'
         THEN jsonb_array_length(input_ids::jsonb)
@@ -93,7 +93,7 @@ SELECT
         ELSE NULL
     END AS neg_len,
 
-    -- LDA aspect prob - truncate
+
     LEFT(lda_aspect_prob, 50) || '...' AS lda_preview,
 
     CASE
@@ -102,7 +102,7 @@ SELECT
         ELSE NULL
     END AS mask_len,
 
-    -- Boolean and integer - no truncation
+
     implicitness,
     polarity,
 

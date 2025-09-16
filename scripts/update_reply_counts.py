@@ -15,20 +15,20 @@ def load_csv_replies(csv_path: str) -> pd.DataFrame:
         usecols=['Comment ID', 'Reply Count'],
         dtype={'Comment ID': str}
     )
-    # normalize
+
     df.columns = (
         df.columns
           .str.lower()
           .str.replace(r'[ \-]+', '_', regex=True)
     )
-    # clean ids
+
     df['comment_id'] = (
         df['comment_id']
           .str.strip()
           .str.lstrip('=')
           .str.strip('"')
     )
-    # numeric counts
+
     df['reply_count'] = pd.to_numeric(df['reply_count'], errors='coerce')
     return df[['comment_id', 'reply_count']]
 
@@ -77,7 +77,6 @@ def update_parquet_replies(input_path: str,
     df_merged['reply_count'] = df_merged['reply_count_new'].combine_first(df_merged['reply_count'])
     df_merged.drop(columns=['reply_count_new'], inplace=True)
 
-    # prepare output
     if os.path.exists(output_path):
         if os.path.isdir(output_path):
             shutil.rmtree(output_path)

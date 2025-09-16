@@ -4,12 +4,12 @@ import pandas as pd
 import pytest
 from pathlib import Path
 
-from src.utils.transform_utils import lambda_handler
+from src.utils.transform_utils import transform_handler
 
 env_bucket = os.environ.get('TEST_S3_BUCKET', 'absa-drift-data')
 model_s3_uri = os.getenv(
     "MODEL_S3_URI",
-    "s3://absa-drift-models/mlflow/1/models/m-315e95fac3ac42ac9e8577e8d445d190/artifacts/"
+    "models:/ABSA_Pipeline_v3/latest"
 )
 
 @pytest.fixture(scope='module')
@@ -34,7 +34,6 @@ def upload_test_extracted_data(s3_client):
     
     print(f"File exists: {Path(local_file).exists()} - {local_file}")
     
-    # Upload fresh test extracted data
     if Path(local_file).exists():
         with open(local_file, 'rb') as f:
             s3_client.upload_fileobj(f, bucket, test_key)
@@ -47,23 +46,22 @@ def test_transform_creates_predictions_on_s3(s3_client, upload_test_extracted_da
     """
     mock_event = {
         'bucket': env_bucket,
-        'key': upload_test_extracted_data
+        'key': upload_test_extracted_data,
+        'test': True
     }
 
     monitor_key = "monitoring/test_monitor_predictions.parquet"
-    result = lambda_handler(mock_event, monitor_key=monitor_key)
+    result = transform_handler(mock_event, monitor_key=monitor_key)
     
     assert result['status'] == 'success'
     assert result['bucket'] == env_bucket
     assert result['monitor_uri'] == f"s3://{env_bucket}/{monitor_key}"
     assert result['new_predictions'] > 0
     
-    # Verify predictions were written to S3
     test_monitor_key = "monitoring/test_monitor_predictions.parquet"
     head = s3_client.head_object(Bucket=env_bucket, Key=test_monitor_key)
     assert head['ContentLength'] > 0
     
-    # Verify predictions data structure
     df = pd.read_parquet(f"s3://{env_bucket}/{test_monitor_key}")
     assert isinstance(df, pd.DataFrame)
     assert df.shape[0] >= result['new_predictions']
@@ -73,7 +71,6 @@ def test_transform_creates_predictions_on_s3(s3_client, upload_test_extracted_da
     assert 'engagement_score' in df.columns
     assert 'implicitness_degree' in df.columns
     
-    # Verify prediction ranges
     assert df['sentiment_score'].min() >= -1.0
     assert df['sentiment_score'].max() <= 1.0
     assert df['engagement_score'].min() >= 0.0

@@ -1,0 +1,108 @@
+repos:
+-   repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+    -   id: trailing-whitespace      # Removes extra spaces at end of lines
+    -   id: end-of-file-fixer        # Ensures files end with a newline character
+    -   id: check-yaml               # Validates YAML file syntax (docker-compose, configs)
+    -   id: check-added-large-files  # Prevents accidentally committing large files (>500KB)
+    -   id: detect-aws-credentials   # Scans for AWS access keys and secrets
+    -   id: detect-private-key       # Detects SSH private keys and certificates
+
+-   repo: https://github.com/pycqa/isort
+    rev: 5.13.2
+    hooks:
+    -   id: isort                    # Automatically sorts Python imports alphabetically
+
+-   repo: https://github.com/gitleaks/gitleaks
+    rev: v8.18.0
+    hooks:
+    -   id: gitleaks                 # Comprehensive secret detection (API keys, tokens, passwords)
+        # TODO: Consider scoping to specific directories if needed
+        # files: ^(src|infra)/.*
+
+-   repo: https://github.com/psf/black
+    rev: 22.6.0
+    hooks:
+    -   id: black                    # Auto-formats Python code to consistent style
+        language_version: python3.9  # TODO: Update to match your Python version (3.9+ for ABSA project)
+
+-   repo: https://github.com/pycqa/pylint
+    rev: v3.2.3
+    hooks:
+    -   id: pylint                   # Analyzes Python code for bugs, style issues, and complexity
+        # TODO: Update file pattern for ABSA project structure
+        files: ^src/.*\.py$          # ABSA: src/ instead of module_6/
+        args: ["--disable=E0401,C0103,W0621,C0301,W1309,C0415,W0603,C0209,R0801,W0611,C0114,C0115,C0116,W0613,R0903"]
+
+# Disabled Pylint Rules Explained:
+# E0401: Unable to import - Not real errors (packages exist in your environment)
+# C0103: Variable name doesn't conform to snake_case - Style preferences (X_val, bucket_name vs BUCKET_NAME)
+# W0621: Redefining name from outer scope - Common in small scripts (function params same as globals)
+# C0301: Line too long - Only 2 lines over 100 characters (black handles most formatting)
+# W1309: f-string without interpolation - Using f"text" instead of "text" (overly pedantic)
+# C0415: Import outside toplevel - Importing inside functions (sometimes needed for conditional imports)
+# W0603: Using global statement - Global variables (common in module-level caching)
+# C0209: Consider using f-string - Suggests f-strings for % formatting (conflicts with W1309!)
+# R0801: Similar lines in files - Duplicate code detection (catches commented teacher code)
+# W0611: Unused import - Unused imports (good to keep visible for cleanup later)
+# C0114: Missing module docstring - Requires docstring at top of every file (overkill for coursework)
+# C0115: Missing class docstring - Requires docstring for every class (verbose for simple classes)
+# C0116: Missing function docstring - Requires docstring for every function (too much for small functions)
+# W0613: Unused argument - Function parameters that aren't used (common in callbacks like lambda context)
+# R0903: Too few public methods - Classes with <2 methods (annoying for simple data classes)
+
+-   repo: local
+    hooks:
+    # TODO: ABSA Unit Tests - Update paths for your project structure
+    -   id: pytest-unit
+        name: Run ABSA Unit Tests
+        # TODO: Change path from module_6/src to match your structure
+        entry: bash -c 'python -m pytest tests/unit/ -v'  # ABSA: tests/unit/ directory
+        language: system
+        files: ^src/.*\.py$                                # ABSA: Monitor src/ changes
+        pass_filenames: false
+
+    # TODO: ABSA Integration Tests - Update for your pipeline
+    -   id: integration-tests-absa
+        name: Run ABSA Integration Tests
+        # TODO: Update to use your integration test approach
+        entry: bash -c 'python test_full_pipeline.py --local'  # ABSA: Use existing test_full_pipeline.py
+        language: system
+        files: ^src/.*\.py$
+        pass_filenames: false
+        # TODO: Consider making this manual for slow LocalStack tests
+        stages: [manual]              # Only runs when manually triggered (not on every commit)
+
+# TODO: ABSA-Specific Additions to Consider:
+# - Terraform validation hook (terraform fmt, terraform validate)
+# - Docker build test (ensure Lambda containers build successfully)
+# - MLflow model validation (check model registry connectivity)
+# - LocalStack health check (verify mock services are running)
+
+# To run manually: pre-commit run integration-tests-absa --hook-stage manual
+
+# ORIGINAL COURSE COMMANDS (kept for reference):
+#-   repo: local
+#    hooks:
+#    -   id: pylint
+#        name: pylint
+#        entry: pylint              # Teacher's local pylint setup
+#        language: system
+#        types: [python]
+#        args: [
+#            "-rn",                  # Only display messages
+#            "-sn",                  # Don't display the score
+#        ]
+
+#-   repo: local
+#    hooks:
+#    -   id: pytest-check
+#        name: pytest-check
+#        entry: pytest              # Teacher's basic pytest runner
+#        language: system
+#        pass_filenames: false
+#        always_run: true
+#        args: [
+#            "tests/"               # Run tests from generic tests/ directory
+#        ]

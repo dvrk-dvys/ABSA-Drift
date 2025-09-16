@@ -1,0 +1,141 @@
+# TODO: ABSA-Drift CI Pipeline - Adapted from MLOps Zoomcamp Course
+name: CI-Tests
+on:
+  pull_request:
+    branches:
+      - 'main'                    # TODO: Change from 'develop' to 'main' for ABSA project
+      - 'develop'                 # TODO: Add if you use develop branch
+    paths:
+      - 'src/**'                  # TODO: Changed from 'module_6/src/**' to 'src/**' for ABSA structure
+      - 'tests/**'                # TODO: Added - trigger on test changes
+      - 'infra/**'                # TODO: Added - trigger on infrastructure changes
+
+env:
+  # TODO: Update AWS region for your project
+  AWS_DEFAULT_REGION: 'us-east-1'  # Changed from 'eu-east-1' to match ABSA project
+  AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+  AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+  # TODO: Add ABSA-specific environment variables
+  # S3_DATA_BUCKET: 'absa-drift-data-dev'
+  # S3_MODEL_BUCKET: 'absa-drift-models-dev'
+  # MLFLOW_TRACKING_URI: 'http://localhost:5001'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3  # TODO: Updated from v2 to v3 (newer version)
+      
+      - name: Set up Python 3.9
+        uses: actions/setup-python@v4  # TODO: Updated from v2 to v4
+        with:
+          python-version: 3.9
+
+      # TODO: ABSA Project - Update dependency installation
+      - name: Install dependencies
+        # TODO: Changed working directory and approach for ABSA project
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest pylint black isort
+        # Original course used: working-directory: "06-best-practices/code" and pipenv
+
+      # TODO: ABSA Project - Update unit test execution
+      - name: Run Unit tests
+        run: |
+          # TODO: Run your ABSA unit tests
+          python -m pytest tests/unit/ -v
+        # Original course used: working-directory and pipenv run pytest
+
+      # TODO: ABSA Project - Update linting approach
+      - name: Lint
+        run: |
+          # TODO: Lint your ABSA project structure
+          pylint src/
+          black --check src/ tests/
+          isort --check-only src/ tests/
+        # Original course used: working-directory and pipenv run pylint
+
+      # TODO: ABSA Project - AWS Credentials (consider using LocalStack instead)
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v2  # TODO: Updated from v1 to v2
+        with:
+          aws-access-key-id: ${{ env.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ env.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_DEFAULT_REGION }}
+
+      # TODO: ABSA Project - LocalStack Integration Test (instead of real AWS)
+      - name: Start LocalStack
+        run: |
+          # TODO: Start LocalStack for zero-cost testing
+          docker-compose -f docker-compose.localstack.yml up -d
+          sleep 30  # Wait for LocalStack to be ready
+        # This is NEW for ABSA - course used real AWS integration tests
+
+      # TODO: ABSA Project - Integration Test with LocalStack
+      - name: Integration Test
+        run: |
+          # TODO: Run your ABSA integration tests against LocalStack
+          export AWS_ENDPOINT_URL=http://localhost:4566
+          export AWS_ACCESS_KEY_ID=test
+          export AWS_SECRET_ACCESS_KEY=test
+          python test_full_pipeline.py --local
+        # Original course used: working-directory 'module_6/integration-test' and . run.sh
+
+      # TODO: ABSA Project - Cleanup LocalStack
+      - name: Cleanup LocalStack
+        if: always()
+        run: |
+          docker-compose -f docker-compose.localstack.yml down
+        # This is NEW for ABSA - prevents resource leaks
+
+  # TODO: ABSA Project - Terraform Plan Job
+  tf-plan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3  # TODO: Updated from v2
+
+      # TODO: Consider skipping this for LocalStack-only development
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v2  # TODO: Updated from v1
+        with:
+          aws-access-key-id: ${{ env.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ env.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_DEFAULT_REGION }}
+
+      - uses: hashicorp/setup-terraform@v2
+
+      # TODO: ABSA Project - Update Terraform paths and configuration
+      - name: TF plan
+        id: plan
+        working-directory: 'infra/terraform'  # TODO: Changed from 'module_6/src/infra' to ABSA structure
+        run: |
+          # TODO: Update for ABSA Terraform configuration
+          terraform init
+          terraform plan -var-file="environments/dev.tfvars"
+        # Original course used: backend-config and prod.tfvars
+
+# TODO: Additional ABSA-Specific Jobs to Consider:
+# 
+# docker-build:
+#   runs-on: ubuntu-latest
+#   steps:
+#     - uses: actions/checkout@v3
+#     - name: Test Lambda Docker Builds
+#       run: |
+#         docker build -t test-extract src/lambdas/extract/
+#         docker build -t test-transform src/lambdas/transform/
+#         docker build -t test-monitor src/lambdas/monitor/
+#         docker build -t test-alert src/lambdas/alert/
+#
+# mlflow-test:
+#   runs-on: ubuntu-latest  
+#   steps:
+#     - uses: actions/checkout@v3
+#     - name: Test MLflow Model Loading
+#       run: |
+#         # Start MLflow server
+#         mlflow server --host 0.0.0.0 --port 5001 &
+#         sleep 10
+#         # Test model loading
+#         python -c "import mlflow; print('MLflow connectivity test passed')"
