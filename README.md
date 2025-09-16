@@ -1,6 +1,6 @@
 # 🚀 ABSA-Drift — Production ML Drift Detection Pipeline
 
-![ABSA-Drift Pipeline](docs/images/absa-drift-hero.png)
+![ABSA-Drift Pipeline](/images/20241030-BLOG---Social-Media-Sentiment-Analysis-Simple-Guide---Best-Tools---HERO.png)
 
 Real-time sentiment analysis model drift detection for **TikTok comment data** using serverless AWS architecture with **XGBoost**, **MLflow**, and **Evidently AI** monitoring.
 
